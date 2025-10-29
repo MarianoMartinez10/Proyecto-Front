@@ -1,0 +1,59 @@
+import { Gamepad2 } from "lucide-react";
+import Link from "next/link";
+
+const footerLinks = {
+  "Tienda": [
+    { title: "Todos los Juegos", href: "/productos" },
+    { title: "Por Plataforma", href: "/productos" },
+    { title: "Por Género", href: "/productos" },
+  ],
+  "Soporte": [
+    { title: "Contacto", href: "/contacto" },
+    { title: "FAQ", href: "/" },
+    { title: "Envíos y Devoluciones", href: "/" },
+  ],
+  "Compañía": [
+    { title: "Sobre Nosotros", href: "/" },
+    { title: "Carreras", href: "/" },
+    { title: "Prensa", href: "/" },
+  ],
+};
+
+export function Footer() {
+  return (
+    <footer className="w-full border-t border-border/40 bg-background/95 mt-16">
+      <div className="container mx-auto max-w-screen-2xl px-4 py-8 lg:py-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+          <div className="col-span-2 lg:col-span-1">
+            <Link href="/" className="flex items-center space-x-2 mb-4">
+              <Gamepad2 className="h-8 w-8 text-primary" />
+              <span className="font-bold text-xl font-headline">
+                4Fun
+              </span>
+            </Link>
+            <p className="text-sm text-muted-foreground">
+              Tu tienda única para videojuegos digitales y físicos.
+            </p>
+          </div>
+          {Object.entries(footerLinks).map(([category, links]) => (
+            <div key={category}>
+              <h4 className="font-headline font-semibold mb-4">{category}</h4>
+              <ul className="space-y-2">
+                {links.map((link) => (
+                  <li key={link.title}>
+                    <Link href={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      {link.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 pt-8 border-t border-border/40 text-center text-sm text-muted-foreground">
+          <p>&copy; {new Date().getFullYear()} 4Fun Marketplace. Todos los derechos reservados.</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
