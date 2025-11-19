@@ -3,7 +3,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { ApiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
+import type { Game } from '@/lib/types'; // Asegúrate de importar el tipo Game
 
+// Definición del item del carrito
 interface CartItem {
   id: string;
   productId: string;
@@ -11,156 +13,210 @@ interface CartItem {
   price: number;
   quantity: number;
   image?: string;
+  // Propiedades adicionales para coincidir con la UI si es necesario
+  platform?: { name: string };
+  imageId?: string;
 }
 
 interface CartContextType {
+  // --- CARRITO ---
   cart: CartItem[];
   addToCart: (product: any, quantity?: number) => Promise<void>;
   removeFromCart: (productId: string) => Promise<void>;
   updateQuantity: (productId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
-  total: number;
-  itemCount: number;
+  cartTotal: number; // Renombrado para consistencia con tu frontend
+  cartCount: number; // Renombrado para consistencia
   isLoading: boolean;
+  
+  // --- WISHLIST (LO QUE FALTABA) ---
+  wishlist: Game[];
+  toggleWishlist: (game: Game) => void;
+  removeFromWishlist: (gameId: string) => void;
+  isInWishlist: (gameId: string) => boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  // Estado del Carrito
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Estado de la Wishlist
+  const [wishlist, setWishlist] = useState<Game[]>([]);
+
   const { user, token } = useAuth();
 
-  // Calcular total
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  
-  // Calcular cantidad de items
-  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  // --- LÓGICA DEL CARRITO ---
+
+  // Calcular totales
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   // Sincronizar carrito con el backend
   const syncCart = async () => {
     try {
       setIsLoading(true);
-      // CORRECCIÓN CLAVE: Pasamos user.id (si existe) y el token
       const cartData = await ApiClient.getCart(user?.id, token ?? undefined);
-      setCart(cartData.cart?.items || []); // Ajustado para usar la estructura correcta
+      
+      // Adaptamos la respuesta del backend a la estructura interna
+      const adaptedItems = (cartData.cart?.items || []).map((item: any) => ({
+        id: item._id || item.id,
+        productId: item.product?._id || item.product?.id || item.productId,
+        name: item.product?.nombre || item.name,
+        price: item.product?.precio || item.price,
+        quantity: item.quantity,
+        image: item.product?.imagenUrl || item.image,
+        imageId: item.product?.imagenUrl, // Para compatibilidad con imágenes locales
+        platform: item.product?.plataformaId ? { name: item.product.plataformaId.nombre || 'Plataforma' } : undefined
+      }));
+
+      setCart(adaptedItems);
     } catch (error) {
       console.error('Error al sincronizar carrito:', error);
-      // Si falla, cargar del localStorage
       const localCart = localStorage.getItem('cart');
       if (localCart) {
-        setCart(JSON.parse(localCart));
+        try { setCart(JSON.parse(localCart)); } catch {}
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Guardar carrito en localStorage
-  const saveToLocalStorage = (cartItems: CartItem[]) => {
-    localStorage.setItem('cart', JSON.stringify(cartItems));
+  // --- LÓGICA DE WISHLIST ---
+
+  // Cargar Wishlist de localStorage al inicio
+  useEffect(() => {
+    const storedWishlist = localStorage.getItem('wishlist');
+    if (storedWishlist) {
+      try {
+        setWishlist(JSON.parse(storedWishlist));
+      } catch (error) {
+        console.error("Error loading wishlist:", error);
+      }
+    }
+  }, []);
+
+  // Guardar Wishlist cuando cambie
+  useEffect(() => {
+    localStorage.setItem('wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  const toggleWishlist = (game: Game) => {
+    if (isInWishlist(game.id)) {
+      removeFromWishlist(game.id);
+    } else {
+      setWishlist((prev) => [...prev, game]);
+    }
   };
 
+  const removeFromWishlist = (gameId: string) => {
+    setWishlist((prev) => prev.filter((item) => item.id !== gameId));
+  };
+
+  const isInWishlist = (gameId: string) => {
+    return wishlist.some((item) => item.id === gameId);
+  };
+
+  // --- EFECTOS GLOBALES ---
+
   useEffect(() => {
-    // Si user o token cambian (login/logout), intentamos sincronizar
     if (user || token) {
       syncCart();
     } else {
-      // Si no está autenticado, cargamos el carrito local
       const localCart = localStorage.getItem('cart');
       if (localCart) {
-        setCart(JSON.parse(localCart));
+        try { setCart(JSON.parse(localCart)); } catch {}
       }
       setIsLoading(false);
     }
-  }, [user, token]); // Añadimos 'user' como dependencia
+  }, [user, token]);
 
-  // Agregar al carrito
+  // --- MÉTODOS DEL CARRITO ---
+
   const addToCart = async (product: any, quantity: number = 1) => {
     try {
+      // Optimistic update (opcional) o llamada directa
       if (user && token) {
-        await ApiClient.addToCart(product.id, quantity, token ?? undefined);
+        // El backend espera productId, no el objeto entero
+        const prodId = product.id || product._id; 
+        await ApiClient.addToCart(prodId, quantity, token);
         await syncCart();
       } else {
-        // Carrito local
-        const existingItem = cart.find(item => item.productId === product.id);
-        let newCart: CartItem[];
-        
-        if (existingItem) {
-          newCart = cart.map(item =>
-            item.productId === product.id
-              ? { ...item, quantity: item.quantity + quantity }
-              : item
-          );
+        // Carrito Local (sin login)
+        const existingItemIndex = cart.findIndex(item => item.productId === product.id);
+        let newCart = [...cart];
+
+        if (existingItemIndex > -1) {
+          newCart[existingItemIndex].quantity += quantity;
         } else {
-          newCart = [
-            ...cart,
-            {
-              id: Date.now().toString(),
-              productId: product.id,
-              name: product.name,
-              price: product.price,
-              quantity,
-              image: product.image,
-            },
-          ];
+          newCart.push({
+            id: `local-${Date.now()}`,
+            productId: product.id,
+            name: product.name,
+            price: product.price,
+            quantity,
+            image: product.imageId || product.imageUrl, // Ajuste según tus datos
+            imageId: product.imageId,
+            platform: product.platform
+          });
         }
-        
         setCart(newCart);
-        saveToLocalStorage(newCart);
+        localStorage.setItem('cart', JSON.stringify(newCart));
       }
     } catch (error) {
       console.error('Error al agregar al carrito:', error);
-      throw error;
     }
   };
 
-  // Actualizar cantidad
   const updateQuantity = async (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+        // Opcional: eliminar si baja a 0
+        return; 
+    }
     try {
-      if (quantity <= 0) {
-        await removeFromCart(productId);
-        return;
-      }
-
-      if (user && token) {
-        await ApiClient.updateCartItem(productId, quantity, token ?? undefined);
-        await syncCart();
-      } else {
-        const newCart = cart.map(item =>
-          item.productId === productId ? { ...item, quantity } : item
-        );
-        setCart(newCart);
-        saveToLocalStorage(newCart);
-      }
+        if (user && token) {
+            // Busca el item real para obtener su ID de base de datos si es necesario
+            // Dependiendo de tu API, puede requerir el ID del item del carrito o del producto
+            // Asumiremos que tu API de 'updateCartItem' usa el ID del item del carrito
+            const cartItem = cart.find(item => item.productId === productId || item.id === productId);
+            if(cartItem) {
+               // Nota: Tu api-client.ts llama a /cart (PUT) con productId.
+               await ApiClient.updateCartItem(cartItem.productId, quantity, token);
+               await syncCart();
+            }
+        } else {
+            const newCart = cart.map(item => 
+                (item.productId === productId || item.id === productId) ? { ...item, quantity } : item
+            );
+            setCart(newCart);
+            localStorage.setItem('cart', JSON.stringify(newCart));
+        }
     } catch (error) {
-      console.error('Error al actualizar cantidad:', error);
-      throw error;
+        console.error('Error updating quantity:', error);
     }
   };
 
-  // Remover del carrito
-  const removeFromCart = async (productId: string) => {
+  const removeFromCart = async (itemId: string) => {
     try {
       if (user && token) {
-        await ApiClient.removeFromCart(productId, token ?? undefined);
+        await ApiClient.removeFromCart(itemId, token);
         await syncCart();
       } else {
-        const newCart = cart.filter(item => item.productId !== productId);
+        const newCart = cart.filter(item => item.id !== itemId);
         setCart(newCart);
-        saveToLocalStorage(newCart);
+        localStorage.setItem('cart', JSON.stringify(newCart));
       }
     } catch (error) {
       console.error('Error al remover del carrito:', error);
-      throw error;
     }
   };
 
-  // Limpiar carrito
   const clearCart = async () => {
     try {
       if (user && token) {
-        await ApiClient.clearCart(token ?? undefined);
+        await ApiClient.clearCart(token);
         await syncCart();
       } else {
         setCart([]);
@@ -168,7 +224,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error al limpiar carrito:', error);
-      throw error;
     }
   };
 
@@ -178,9 +233,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     removeFromCart,
     updateQuantity,
     clearCart,
-    total,
-    itemCount,
+    cartTotal,
+    cartCount,
     isLoading,
+    // Wishlist
+    wishlist,
+    toggleWishlist,
+    removeFromWishlist,
+    isInWishlist
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

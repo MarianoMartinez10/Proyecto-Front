@@ -44,7 +44,6 @@ export class ApiClient {
     return response.json();
   }
 
-  // Productos (Con Adaptador)
   static async getProducts() {
     const data = await this.request('/products');
     return Array.isArray(data) ? data.map(adaptProduct) : [];
@@ -55,23 +54,45 @@ export class ApiClient {
     return adaptProduct(data);
   }
 
+  // --- NUEVO MÉTODO: Crear Producto ---
+  static async createProduct(productData: any, token?: string) {
+    const headers: HeadersInit = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    // Convertimos los datos del formulario (Frontend/Inglés) al formato del Backend (Español)
+    const backendPayload = {
+      nombre: productData.name,
+      descripcion: productData.description,
+      precio: parseFloat(productData.price),
+      plataformaId: productData.platformId,
+      generoId: productData.genreId,
+      tipo: productData.type === 'Physical' ? 'Fisico' : 'Digital',
+      fechaLanzamiento: productData.releaseDate || new Date(),
+      desarrollador: productData.developer,
+      imagenUrl: productData.imageUrl,
+      stock: parseInt(productData.stock),
+      activo: true
+    };
+
+    return this.request('/products', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(backendPayload),
+    });
+  }
+
   static async getCategories() {
     return this.request('/categories');
   }
 
-  // Carrito - CORRECCIÓN CLAVE: Acepta userId y lo usa en la URL
   static async getCart(userId: string | undefined, token?: string) {
-    // Si no hay ID de usuario, devolvemos una estructura vacía para evitar el fetch
-    if (!userId) {
-       return { cart: { items: [] } };
-    }
+    if (!userId) return { cart: { items: [] } };
     
     const headers: HeadersInit = {};
     if (token) headers.Authorization = `Bearer ${token}`;
-    // Usamos el userId en la ruta según lo espera el backend: /cart/:userId
+    
     const data = await this.request(`/cart/${userId}`, { headers });
     
-    // Adaptar campos de producto dentro del carrito
     if (data.cart && data.cart.items) {
        data.cart.items = data.cart.items.map((item: any) => ({
          ...item,

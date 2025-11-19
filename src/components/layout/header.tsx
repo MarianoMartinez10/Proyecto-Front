@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Gamepad2, Heart, Search, ShoppingCart, User, LogOut } from "lucide-react";
+import { Gamepad2, Heart, Search, ShoppingCart, User, LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/context/CartContext";
@@ -36,6 +36,14 @@ export function Header() {
           <Link href="/contacto" className="transition-colors hover:text-primary">
             Contacto
           </Link>
+          
+          {/* Enlace de Gestión solo para Admins */}
+          {user && user.role === 'admin' && (
+             <Link href="/admin/products" className="transition-colors text-primary font-bold flex items-center gap-1">
+               <Settings className="h-4 w-4" />
+               Gestión
+             </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-2 ml-auto">
@@ -48,22 +56,26 @@ export function Header() {
             />
           </div>
 
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/wishlist" aria-label="Wishlist">
-              <Heart className="h-5 w-5" />
-            </Link>
-          </Button>
+          {user && (
+            <>
+              <Button variant="ghost" size="icon" asChild>
+                <Link href="/wishlist" aria-label="Wishlist">
+                  <Heart className="h-5 w-5" />
+                </Link>
+              </Button>
 
-          <Button variant="ghost" size="icon" asChild className="relative">
-            <Link href="/cart" aria-label="Shopping cart">
-              <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                  {cartCount}
-                </span>
-              )}
-            </Link>
-          </Button>
+              <Button variant="ghost" size="icon" asChild className="relative">
+                <Link href="/cart" aria-label="Shopping cart">
+                  <ShoppingCart className="h-5 w-5" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </Link>
+              </Button>
+            </>
+          )}
 
           {user ? (
             <DropdownMenu>
@@ -74,12 +86,21 @@ export function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>
-                  {user.displayName || user.nombre || user.email}
+                  {user.name || user.email}
+                  <span className="block text-xs text-muted-foreground font-normal capitalize">
+                    {user.role}
+                  </span>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/account">Mi Cuenta</Link>
                 </DropdownMenuItem>
+                {user.role === 'admin' && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/products">Administrar Productos</Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Cerrar Sesión
