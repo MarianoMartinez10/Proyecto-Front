@@ -41,8 +41,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const syncCart = async () => {
     try {
       setIsLoading(true);
-      const cartData = await ApiClient.getCart(token ?? undefined);
-      setCart(cartData.items || []);
+      // CORRECCIÓN CLAVE: Pasamos user.id (si existe) y el token
+      const cartData = await ApiClient.getCart(user?.id, token ?? undefined);
+      setCart(cartData.cart?.items || []); // Ajustado para usar la estructura correcta
     } catch (error) {
       console.error('Error al sincronizar carrito:', error);
       // Si falla, cargar del localStorage
@@ -61,16 +62,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    if (user && token) {
+    // Si user o token cambian (login/logout), intentamos sincronizar
+    if (user || token) {
       syncCart();
     } else {
+      // Si no está autenticado, cargamos el carrito local
       const localCart = localStorage.getItem('cart');
       if (localCart) {
         setCart(JSON.parse(localCart));
       }
       setIsLoading(false);
     }
-  }, [user, token]);
+  }, [user, token]); // Añadimos 'user' como dependencia
 
   // Agregar al carrito
   const addToCart = async (product: any, quantity: number = 1) => {

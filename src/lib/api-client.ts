@@ -1,6 +1,9 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+// Función para adaptar un producto del Backend (Español) al Frontend (Inglés)
 function adaptProduct(apiProduct: any): any {
+  if (!apiProduct || typeof apiProduct !== 'object') return apiProduct;
+
   return {
     id: apiProduct._id || apiProduct.id,
     name: apiProduct.nombre,
@@ -41,6 +44,7 @@ export class ApiClient {
     return response.json();
   }
 
+  // Productos (Con Adaptador)
   static async getProducts() {
     const data = await this.request('/products');
     return Array.isArray(data) ? data.map(adaptProduct) : [];
@@ -55,11 +59,19 @@ export class ApiClient {
     return this.request('/categories');
   }
 
-  static async getCart(token?: string) {
+  // Carrito - CORRECCIÓN CLAVE: Acepta userId y lo usa en la URL
+  static async getCart(userId: string | undefined, token?: string) {
+    // Si no hay ID de usuario, devolvemos una estructura vacía para evitar el fetch
+    if (!userId) {
+       return { cart: { items: [] } };
+    }
+    
     const headers: HeadersInit = {};
     if (token) headers.Authorization = `Bearer ${token}`;
-    const data = await this.request('/cart', { headers });
+    // Usamos el userId en la ruta según lo espera el backend: /cart/:userId
+    const data = await this.request(`/cart/${userId}`, { headers });
     
+    // Adaptar campos de producto dentro del carrito
     if (data.cart && data.cart.items) {
        data.cart.items = data.cart.items.map((item: any) => ({
          ...item,
