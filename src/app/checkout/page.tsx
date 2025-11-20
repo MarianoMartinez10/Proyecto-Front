@@ -118,7 +118,7 @@ export default function CheckoutPage() {
               <RadioGroup defaultValue="tarjeta" onValueChange={(val) => setFormData({...formData, paymentMethod: val})}>
                 <div className="flex items-center space-x-2 border p-4 rounded-md mb-2">
                   <RadioGroupItem value="tarjeta" id="tarjeta" />
-                  <Label htmlFor="tarjeta" className="flex items-center gap-2 cursor-pointer w-full"><CreditCard className="h-4 w-4" /> Tarjeta de Crédito/Débito</Label>
+                  <Label htmlFor="tarjeta" className="flex items-center gap-2 cursor-pointer w-full"><CreditCard className="h-4 w-4" /> MercadoPago (Próximamente)</Label>
                 </div>
                 <div className="flex items-center space-x-2 border p-4 rounded-md">
                   <RadioGroupItem value="transferencia" id="transferencia" />

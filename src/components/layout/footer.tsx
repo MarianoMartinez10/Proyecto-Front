@@ -10,12 +10,9 @@ const footerLinks = {
   "Soporte": [
     { title: "Contacto", href: "/contacto" },
     { title: "FAQ", href: "/" },
-    { title: "Envíos y Devoluciones", href: "/" },
   ],
   "Compañía": [
     { title: "Sobre Nosotros", href: "/" },
-    { title: "Carreras", href: "/" },
-    { title: "Prensa", href: "/" },
   ],
 };
 

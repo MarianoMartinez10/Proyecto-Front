@@ -101,12 +101,11 @@ export default function RegisterPage() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="name">Nombre completo</Label>
+              <Label htmlFor="name">Usuario</Label>
               <Input
                 id="name"
                 name="name"
                 type="text"
-                placeholder="Tu nombre"
                 required
                 value={formData.name}
                 onChange={handleChange}
@@ -120,7 +119,6 @@ export default function RegisterPage() {
                 id="email"
                 name="email"
                 type="email"
-                placeholder="tu@email.com"
                 required
                 value={formData.email}
                 onChange={handleChange}

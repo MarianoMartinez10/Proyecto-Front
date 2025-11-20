@@ -125,13 +125,13 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="flex flex-col space-y-2 text-center text-sm text-muted-foreground">
           <div>
-            ¿No tienes una cuenta?{" "}
+            ¿No tenes una cuenta?{" "}
             <Link href="/register" className="text-primary hover:underline font-medium">
               Regístrate aquí
             </Link>
           </div>
           <div className="text-xs">
-            Credenciales demo: admin@4fun.com | password123
+            Credenciales demo: admin@golstore.com | password123
           </div>
         </CardFooter>
       </Card>

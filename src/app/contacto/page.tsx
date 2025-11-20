@@ -19,20 +19,20 @@ export default function ContactoPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="first-name">Nombre</Label>
-                <Input id="first-name" placeholder="Tu nombre" />
+                <Input id="first-name"  />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="last-name">Apellido</Label>
-                <Input id="last-name" placeholder="Tu apellido" />
+                <Input id="last-name"  />
               </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="tu@email.com" />
+              <Input id="email" type="email"  />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="message">Mensaje</Label>
-              <Textarea id="message" placeholder="Escribe tu mensaje aquí..." className="min-h-[120px]" />
+              <Textarea id="message"  className="min-h-[120px]" />
             </div>
             <div className="flex justify-end">
               <Button type="submit">Enviar Mensaje</Button>
