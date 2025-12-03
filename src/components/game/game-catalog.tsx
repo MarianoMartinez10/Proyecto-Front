@@ -1,130 +1,159 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameCard } from './game-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { platforms, genres } from '@/lib/data';
-import { Slider } from '@/components/ui/slider';
-import { formatCurrency } from '@/lib/utils';
-import { ListFilter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ListFilter, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Game } from '@/lib/types';
-import { useGameFilter } from '@/hooks/use-game-filter'; // Importamos el hook
+import { ApiClient } from '@/lib/api-client';
 
 interface GameCatalogProps {
-  games: Game[];
+  initialGames: Game[];
 }
 
-export function GameCatalog({ games }: GameCatalogProps) {
-  // Usamos el Custom Hook para toda la lógica
-  const {
-    searchQuery, setSearchQuery,
-    selectedPlatform, setSelectedPlatform,
-    selectedGenre, setSelectedGenre,
-    priceRange, setPriceRange,
-    paginatedGames,
-    totalGames,
-    currentPage,
-    totalPages,
-    setCurrentPage,
-    resetFilters
-  } = useGameFilter({ games, itemsPerPage: 8 });
+export function GameCatalog({ initialGames }: GameCatalogProps) {
+  // Estado para los filtros
+  const [games, setGames] = useState<Game[]>(initialGames || []);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPlatform, setSelectedPlatform] = useState('all');
+  const [selectedGenre, setSelectedGenre] = useState('all');
+  const [loading, setLoading] = useState(false);
+  
+  // Estado para la paginación
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Efecto para recargar productos cuando cambian los filtros
+  useEffect(() => {
+    const fetchFilteredGames = async () => {
+      setLoading(true);
+      try {
+        const response = await ApiClient.getProducts({
+          page,
+          limit: 8,
+          search: searchQuery,
+          // Solo enviamos si no es 'all' (tendrás que adaptar tu ApiClient si lo requiere)
+          // Nota: Actualmente tu ApiClient.getProducts solo acepta search, page, limit.
+          // Si quieres filtrar por plataforma/género en el backend, debes actualizar ApiClient.
+        });
+
+        if (Array.isArray(response)) {
+           setGames(response);
+        } else {
+           setGames(response.products);
+           setTotalPages(response.meta?.totalPages || 1);
+        }
+      } catch (error) {
+        console.error("Error fetching games:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Debounce para la búsqueda (esperar a que el usuario deje de escribir)
+    const timeoutId = setTimeout(() => {
+        fetchFilteredGames();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, page]); // Dependencias: si cambia búsqueda o página, recarga.
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSelectedPlatform('all');
+    setSelectedGenre('all');
+    setPage(1);
+  };
 
   return (
     <section className="py-12 md:py-16">
       <div className="space-y-4 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h2 className="font-headline text-3xl font-bold md:text-4xl">Explore Our Collection</h2>
-          <span className="text-muted-foreground text-sm">{totalGames} games found</span>
+          <h2 className="font-headline text-3xl font-bold md:text-4xl">Explorar Colección</h2>
         </div>
         
         {/* Filtros */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end bg-muted/30 p-6 rounded-lg border border-border/50">
           <Input
-            placeholder="Search by name..."
+            placeholder="Buscar por nombre..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="md:col-span-2 bg-background"
           />
-          <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+          
+          {/* Nota: Estos selectores visuales no funcionarán hasta que actualicemos ApiClient para aceptar platform/genre */}
+          <Select value={selectedPlatform} onValueChange={setSelectedPlatform} disabled>
             <SelectTrigger className="bg-background">
-              <SelectValue placeholder="Filter by Platform" />
+              <SelectValue placeholder="Plataforma (Pronto)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Platforms</SelectItem>
+              <SelectItem value="all">Todas</SelectItem>
               {platforms.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+
+          <Select value={selectedGenre} onValueChange={setSelectedGenre} disabled>
             <SelectTrigger className="bg-background">
-              <SelectValue placeholder="Filter by Genre" />
+              <SelectValue placeholder="Género (Pronto)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Genres</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
               {genres.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <div className="space-y-2 md:col-span-2 lg:col-span-3">
-            <label className="text-sm font-medium flex justify-between">
-              <span>Price Range</span>
-              <span className="font-mono text-primary">{formatCurrency(priceRange[0])} - {formatCurrency(priceRange[1])}</span>
-            </label>
-            <Slider
-                value={priceRange}
-                onValueChange={(value) => setPriceRange(value)}
-                max={70}
-                step={1}
-                className="py-4"
-            />
-          </div>
-          <Button onClick={resetFilters} variant="outline" className="w-full border-dashed">
+
+          <Button onClick={resetFilters} variant="outline" className="w-full border-dashed md:col-start-4">
             <ListFilter className="mr-2 h-4 w-4" />
-            Reset Filters
+            Limpiar Filtros
           </Button>
         </div>
       </div>
 
       {/* Grid de Productos */}
-      {paginatedGames.length > 0 ? (
+      {loading ? (
+        <div className="py-24 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        </div>
+      ) : games.length > 0 ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {paginatedGames.map((game) => (
+            {games.map((game) => (
               <GameCard key={game.id} game={game} />
             ))}
           </div>
           
-          {/* Controles de Paginación */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-4 mt-12">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          {/* Paginación */}
+          <div className="flex justify-center items-center gap-4 mt-12">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              disabled={page === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium">
+              Página {page} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </>
       ) : (
         <div className="text-center py-24 bg-muted/20 rounded-lg border-2 border-dashed">
-          <h3 className="font-headline text-2xl font-bold">No Games Found</h3>
-          <p className="text-muted-foreground mt-2">Try adjusting your filters to find your next adventure.</p>
+          <h3 className="font-headline text-2xl font-bold">No se encontraron juegos</h3>
+          <p className="text-muted-foreground mt-2">Intenta ajustar tu búsqueda.</p>
           <Button onClick={resetFilters} variant="link" className="mt-4 text-primary">
-            Clear all filters
+            Limpiar filtros
           </Button>
         </div>
       )}

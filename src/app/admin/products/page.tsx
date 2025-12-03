@@ -87,10 +87,12 @@ export default function AdminProductsPage() {
                 <TableRow key={product.id}>
                   <TableCell>
                     <div className="relative h-12 w-12 rounded overflow-hidden bg-muted">
+                      {/* INGENIERÍA: Se añade 'sizes' para cumplir con las best practices de Next.js */}
                       <Image 
                         src={(product.imageId && (product.imageId.startsWith('http') || product.imageId.startsWith('/'))) ? product.imageId : '/placeholder.png'} 
                         alt={product.name} 
                         fill 
+                        sizes="48px" 
                         className="object-cover" 
                       />
                     </div>

@@ -30,8 +30,11 @@ export class ApiClient {
     const url = `${API_BASE_URL}/api${endpoint}`;
     const response = await fetch(url, {
       ...options,
+      // INGENIERÍA: Deshabilitamos el caché para evitar datos obsoletos (stale data)
+      cache: 'no-store', 
       headers: { 'Content-Type': 'application/json', ...options.headers },
     });
+    
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `Error API: ${response.statusText}`);
