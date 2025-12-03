@@ -12,7 +12,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
+  token: string | null; // Mantenemos por compatibilidad, pero será null o dummy
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>;
@@ -23,37 +23,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Verificar sesión al cargar (cookie HttpOnly)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedToken = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        try {
-          setUser(JSON.parse(storedUser));
-        } catch {
-          setUser(null);
+    const checkSession = async () => {
+      try {
+        const response = await ApiClient.getProfile();
+        if (response.success && response.user) {
+          setUser(response.user);
         }
-        // Validar token silenciosamente
-        ApiClient.getProfile(storedToken)
-          .catch(() => {
-            // Si falla, limpiar sesión
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setToken(null);
-            setUser(null);
-          })
-          .finally(() => setLoading(false));
-      } else {
+      } catch (error) {
+        // Si falla, es que no hay cookie válida o expiró
+        setUser(null);
+      } finally {
         setLoading(false);
       }
-    } else {
-      setLoading(false);
-    }
+    };
+    
+    checkSession();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -61,11 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await ApiClient.login({ email, password });
       if (response.success) {
         setUser(response.user);
-        setToken(response.token);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('token', response.token);
-          localStorage.setItem('user', JSON.stringify(response.user));
-        }
         return { success: true };
       }
       return { success: false, message: 'Credenciales inválidas' };
@@ -79,11 +62,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await ApiClient.register({ name, email, password });
       if (response.success) {
         setUser(response.user);
-        setToken(response.token);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('token', response.token);
-          localStorage.setItem('user', JSON.stringify(response.user));
-        }
         return { success: true };
       }
       return { success: false, message: 'Error en registro' };
@@ -94,22 +72,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      if (token) await ApiClient.logout(token);
+      await ApiClient.logout();
     } catch (error) {
       console.error(error);
     } finally {
       setUser(null);
-      setToken(null);
+      // Opcional: Limpiar datos locales no sensibles como carrito
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
         localStorage.removeItem('cart');
       }
+      // Redirigir o refrescar para limpiar estado completo
+      window.location.href = '/';
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token: null, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

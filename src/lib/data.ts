@@ -1,4 +1,4 @@
-import type { Platform, Genre, Game } from './types';
+import type { Platform, Genre } from './types';
 
 export const platforms: Platform[] = [
   { id: 'ps5', name: 'PlayStation 5' },
@@ -20,4 +20,4 @@ export const genres: Genre[] = [
   { id: 'simulation', name: 'Simulación' },
 ];
 
-export const allGames: Game[] = [];
+export const allGames: any[] = [];

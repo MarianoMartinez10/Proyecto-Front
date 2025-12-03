@@ -110,7 +110,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   const onSubmit = async (data: ProductFormValues) => {
     try {
-      await ApiClient.updateProduct(id, data, token || undefined);
+      await ApiClient.updateProduct(id, data); 
       toast({ title: "Éxito", description: "Producto actualizado correctamente." });
       router.push("/admin/products");
       router.refresh();

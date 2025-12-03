@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { platforms, genres } from "@/lib/data";
+import { platforms, genres } from "@/lib/data"
 import { Loader2, X } from "lucide-react";
 import Image from "next/image";
 
@@ -100,7 +100,7 @@ export default function NewProductPage() {
 
   const onSubmit = async (data: ProductFormValues) => {
     try {
-      await ApiClient.createProduct(data, token || undefined);
+      await ApiClient.createProduct(data); 
       toast({ title: "Éxito", description: "Producto publicado correctamente." });
       router.push("/admin/products");
       router.refresh();

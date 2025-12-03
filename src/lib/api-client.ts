@@ -18,7 +18,6 @@ function adaptProduct(apiProduct: any): any {
     type: apiProduct.tipo === 'Fisico' ? 'Physical' : 'Digital',
     releaseDate: apiProduct.fechaLanzamiento,
     developer: apiProduct.desarrollador,
-    // Soporte híbrido de imágenes (Locales y Remotas)
     imageId: apiProduct.imagenUrl || 'https://placehold.co/600x400/png?text=Sin+Imagen',
     rating: apiProduct.calificacion || 0,
     stock: apiProduct.stock || 0
@@ -30,11 +29,11 @@ export class ApiClient {
     const url = `${API_BASE_URL}/api${endpoint}`;
     const response = await fetch(url, {
       ...options,
-      // INGENIERÍA: Deshabilitamos el caché para evitar datos obsoletos (stale data)
-      cache: 'no-store', 
+      cache: 'no-store',
+      // INGENIERÍA: 'include' envía las cookies HttpOnly automáticamente al backend
+      credentials: 'include', 
       headers: { 'Content-Type': 'application/json', ...options.headers },
     });
-    
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `Error API: ${response.statusText}`);
@@ -42,11 +41,11 @@ export class ApiClient {
     return response.json();
   }
 
-  // Auth
+  // Auth - Ya no devuelven token explícito, lo maneja la cookie
   static async login(data: any) { return this.request('/auth/login', { method: 'POST', body: JSON.stringify(data) }); }
   static async register(data: any) { return this.request('/auth/register', { method: 'POST', body: JSON.stringify(data) }); }
-  static async getProfile(token: string) { return this.request('/auth/profile', { headers: { Authorization: `Bearer ${token}` } }); }
-  static async logout(token: string) { return this.request('/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }); }
+  static async getProfile() { return this.request('/auth/profile'); } // Ya no requiere pasar token
+  static async logout() { return this.request('/auth/logout', { method: 'POST' }); } // Ya no requiere pasar token
 
   // Productos
   static async getProducts(params?: { page?: number; limit?: number; search?: string }) {
@@ -59,24 +58,18 @@ export class ApiClient {
     const data = await this.request(`/products${queryString}`);
   
     if (data.data && Array.isArray(data.data)) {
-      return {
-        products: data.data.map(adaptProduct),
-        meta: data.meta
-      };
+      return { products: data.data.map(adaptProduct), meta: data.meta };
     }
-    
-    return {
-      products: Array.isArray(data) ? data.map(adaptProduct) : [],
-      meta: { total: 0, page: 1, limit: 10, totalPages: 1 }
-    };
+    return { products: Array.isArray(data) ? data.map(adaptProduct) : [], meta: { total: 0, page: 1, limit: 10, totalPages: 1 } };
   }
 
   static async getProductById(id: string) {
     const data = await this.request(`/products/${id}`);
     return adaptProduct(data);
   }
-  static async createProduct(productData: any, token?: string) {
-    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+  
+  // En métodos de escritura, ya no necesitamos pasar 'token' como argumento, la cookie va sola.
+  static async createProduct(productData: any) {
     const backendPayload = {
       nombre: productData.name,
       descripcion: productData.description,
@@ -90,10 +83,10 @@ export class ApiClient {
       stock: parseInt(productData.stock),
       activo: true
     };
-    return this.request('/products', { method: 'POST', headers, body: JSON.stringify(backendPayload) });
+    return this.request('/products', { method: 'POST', body: JSON.stringify(backendPayload) });
   }
-  static async updateProduct(id: string, productData: any, token?: string) {
-    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+  static async updateProduct(id: string, productData: any) {
     const backendPayload = { 
         nombre: productData.name, 
         descripcion: productData.description, 
@@ -105,20 +98,19 @@ export class ApiClient {
         desarrollador: productData.developer,
         tipo: productData.type === 'Physical' ? 'Fisico' : 'Digital'
     };
-    return this.request(`/products/${id}`, { method: 'PUT', headers, body: JSON.stringify(backendPayload) });
+    return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(backendPayload) });
   }
-  static async deleteProduct(id: string, token?: string) {
-    return this.request(`/products/${id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+  static async deleteProduct(id: string) {
+    return this.request(`/products/${id}`, { method: 'DELETE' });
   }
   
-  // Categorías
   static async getCategories() { return this.request('/categories'); }
 
-  // Carrito
-  static async getCart(userId?: string, token?: string) {
+  // Carrito y Wishlist: Simplificados al quitar el argumento 'token'
+  static async getCart(userId?: string) {
     if (!userId) return { cart: { items: [] } };
-    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-    const data = await this.request(`/cart/${userId}`, { headers });
+    const data = await this.request(`/cart/${userId}`);
     if (data.cart?.items) {
        data.cart.items = data.cart.items.map((item: any) => ({
          ...item,
@@ -131,33 +123,36 @@ export class ApiClient {
     }
     return data;
   }
-  static async addToCart(userId: string, productId: string, quantity: number, token?: string) {
+
+  static async addToCart(userId: string, productId: string, quantity: number) {
     return this.request('/cart', { 
       method: 'POST', 
-      headers: { Authorization: `Bearer ${token}` }, 
       body: JSON.stringify({ userId, productId, quantity }) 
     });
   }
-  static async removeFromCart(userId: string, itemId: string, token?: string) {
-    return this.request(`/cart/${userId}/${itemId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-  }
-  static async updateCartItem(userId: string, itemId: string, quantity: number, token?: string) {
-    return this.request('/cart', { method: 'PUT', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ userId, itemId, quantity }) });
-  }
-  static async clearCart(userId: string, token?: string) {
-    return this.request(`/cart/${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+
+  static async removeFromCart(userId: string, itemId: string) {
+    return this.request(`/cart/${userId}/${itemId}`, { method: 'DELETE' });
   }
 
-  // Wishlist & Orders
-  static async getWishlist(userId: string, token?: string) {
-    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-    const data = await this.request(`/wishlist/${userId}`, { headers });
+  static async updateCartItem(userId: string, itemId: string, quantity: number) {
+    return this.request('/cart', { method: 'PUT', body: JSON.stringify({ userId, itemId, quantity }) });
+  }
+
+  static async clearCart(userId: string) {
+    return this.request(`/cart/${userId}`, { method: 'DELETE' });
+  }
+
+  static async getWishlist(userId: string) {
+    const data = await this.request(`/wishlist/${userId}`);
     return Array.isArray(data.wishlist) ? data.wishlist.map(adaptProduct) : [];
   }
-  static async toggleWishlist(userId: string, productId: string, token?: string) {
-    return this.request('/wishlist/toggle', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ userId, productId }) });
+
+  static async toggleWishlist(userId: string, productId: string) {
+    return this.request('/wishlist/toggle', { method: 'POST', body: JSON.stringify({ userId, productId }) });
   }
-  static async createOrder(orderData: any, token?: string) {
-    return this.request('/orders', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(orderData) });
+
+  static async createOrder(orderData: any) {
+    return this.request('/orders', { method: 'POST', body: JSON.stringify(orderData) });
   }
 }

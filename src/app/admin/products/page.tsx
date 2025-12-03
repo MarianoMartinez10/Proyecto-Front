@@ -12,7 +12,7 @@ import { Loader2, Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide
 import { formatCurrency } from "@/lib/utils";
 
 export default function AdminProductsPage() {
-  const { token, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth(); // Ya no necesitamos 'token' aquí
   const [products, setProducts] = useState<any[]>([]);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1 });
   const [loading, setLoading] = useState(true);
@@ -50,7 +50,8 @@ export default function AdminProductsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("¿Estás seguro de eliminar este producto?")) return;
     try {
-      await ApiClient.deleteProduct(id, token || undefined);
+      // CORRECCIÓN: Eliminamos el segundo argumento 'token'
+      await ApiClient.deleteProduct(id); 
       toast({ title: "Producto eliminado", description: "El producto ha sido borrado correctamente (eliminación lógica)." });
       loadProducts(meta.page); 
     } catch (error) {
@@ -87,12 +88,11 @@ export default function AdminProductsPage() {
                 <TableRow key={product.id}>
                   <TableCell>
                     <div className="relative h-12 w-12 rounded overflow-hidden bg-muted">
-                      {/* INGENIERÍA: Se añade 'sizes' para cumplir con las best practices de Next.js */}
                       <Image 
                         src={(product.imageId && (product.imageId.startsWith('http') || product.imageId.startsWith('/'))) ? product.imageId : '/placeholder.png'} 
                         alt={product.name} 
                         fill 
-                        sizes="48px" 
+                        sizes="48px"
                         className="object-cover" 
                       />
                     </div>
