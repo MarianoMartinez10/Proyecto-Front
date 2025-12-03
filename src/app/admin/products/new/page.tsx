@@ -51,6 +51,19 @@ export default function NewProductPage() {
               <div className="space-y-2"><Label>Plataforma</Label><Select onValueChange={(v) => setFormData({...formData, platformId: v})}><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger><SelectContent>{platforms.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-2"><Label>Género</Label><Select onValueChange={(v) => setFormData({...formData, genreId: v})}><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger><SelectContent>{genres.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select></div>
             </div>
+            
+            {/* BLOQUE AÑADIDO: Campo para el Desarrollador */}
+            <div className="space-y-2">
+              <Label>Desarrollador</Label>
+              <Input 
+                required 
+                value={formData.developer} 
+                onChange={(e) => setFormData({...formData, developer: e.target.value})} 
+                placeholder="Ej: Nintendo, Sony, Capcom"
+              />
+            </div>
+            {/* FIN BLOQUE AÑADIDO */}
+
             <div className="space-y-2"><Label>URL Imagen</Label><Input value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} /></div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin" /> : "Publicar"}</Button>
           </form>

@@ -66,9 +66,11 @@ export async function GameRecommendations() {
         </Carousel>
       </section>
     );
-  } catch (error) {
-    console.error("Failed to get game recommendations:", error);
-    // You could render a fallback UI here if needed
+  } catch (error: any) {
+    // CORRECCIÓN: Mejor logging del error
+    console.error("Failed to get game recommendations. Full Error:", JSON.stringify(error, null, 2));
+    if (error.message) console.error("Error Message:", error.message);
+    
     return null;
   }
 }
