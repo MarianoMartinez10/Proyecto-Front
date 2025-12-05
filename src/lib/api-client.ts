@@ -3,18 +3,13 @@ import { z } from 'zod';
 
 // Configuración dinámica de la URL base
 const getBaseUrl = () => {
-  // Si estamos en el servidor (SSR), usamos la variable de entorno o localhost por defecto
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   }
   
-  // Si estamos en el cliente, construimos la URL basada en el hostname actual
-  // Esto permite que funcione tanto en localhost como en 192.168.x.x sin cambiar .env
   const hostname = window.location.hostname;
-  const port = '5000'; // Asegúrate de que este sea el puerto correcto de tu backend (5000 o 9003)
+  const port = '5000'; 
   
-  // Si tienes una variable de entorno definida, la respetamos, 
-  // pero intentamos reemplazar 'localhost' por la IP si estamos navegando por IP
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
   if (envUrl) {
      if (envUrl.includes('localhost') && hostname !== 'localhost') {
@@ -29,14 +24,13 @@ const getBaseUrl = () => {
 export class ApiClient {
   private static async request(endpoint: string, options: RequestInit = {}) {
     const baseUrl = getBaseUrl();
-    // Normalizamos para asegurar que /api no se duplique si ya viene en la base
     const apiPath = baseUrl.endsWith('/api') ? '' : '/api';
     const url = `${baseUrl}${apiPath}${endpoint}`;
 
     const response = await fetch(url, {
       ...options,
       cache: 'no-store',
-      credentials: 'include', // CRÍTICO: Esto envía la cookie HttpOnly
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...options.headers },
     });
     
@@ -54,12 +48,22 @@ export class ApiClient {
   static async getProfile() { return this.request('/auth/profile'); }
   static async logout() { return this.request('/auth/logout', { method: 'POST' }); }
 
-  // Productos con Validación Zod
-  static async getProducts(params?: { page?: number; limit?: number; search?: string }) {
+  // Productos con Filtros Avanzados
+  static async getProducts(params?: { 
+    page?: number; 
+    limit?: number; 
+    search?: string;
+    platform?: string; // Nuevo parámetro
+    genre?: string;    // Nuevo parámetro
+  }) {
     const query = new URLSearchParams();
     if (params?.page) query.append("page", params.page.toString());
     if (params?.limit) query.append("limit", params.limit.toString());
     if (params?.search) query.append("search", params.search);
+    
+    // Lógica de filtrado: Solo enviar si no es 'all' y tiene valor
+    if (params?.platform && params.platform !== 'all') query.append("platform", params.platform);
+    if (params?.genre && params.genre !== 'all') query.append("genre", params.genre);
   
     const queryString = query.toString() ? `?${query.toString()}` : "";
     const response = await this.request(`/products${queryString}`);

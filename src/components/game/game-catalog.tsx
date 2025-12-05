@@ -26,7 +26,7 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Efecto para recargar productos cuando cambian los filtros
+  // Efecto principal: Recargar productos cuando cambia CUALQUIER filtro
   useEffect(() => {
     const fetchFilteredGames = async () => {
       setLoading(true);
@@ -35,9 +35,8 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
           page,
           limit: 8,
           search: searchQuery,
-          // Solo enviamos si no es 'all' (tendrás que adaptar tu ApiClient si lo requiere)
-          // Nota: Actualmente tu ApiClient.getProducts solo acepta search, page, limit.
-          // Si quieres filtrar por plataforma/género en el backend, debes actualizar ApiClient.
+          platform: selectedPlatform, // Ahora enviamos la plataforma
+          genre: selectedGenre        // Ahora enviamos el género
         });
 
         if (Array.isArray(response)) {
@@ -53,13 +52,18 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
       }
     };
 
-    // Debounce para la búsqueda (esperar a que el usuario deje de escribir)
+    // Debounce solo para la búsqueda de texto para no saturar la API
     const timeoutId = setTimeout(() => {
         fetchFilteredGames();
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, page]); // Dependencias: si cambia búsqueda o página, recarga.
+  }, [searchQuery, page, selectedPlatform, selectedGenre]); // Añadimos dependencias críticas
+
+  // Resetear paginación si cambian los filtros (UX Mejorada)
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedPlatform, selectedGenre]);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -84,23 +88,22 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
             className="md:col-span-2 bg-background"
           />
           
-          {/* Nota: Estos selectores visuales no funcionarán hasta que actualicemos ApiClient para aceptar platform/genre */}
-          <Select value={selectedPlatform} onValueChange={setSelectedPlatform} disabled>
+          <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
             <SelectTrigger className="bg-background">
-              <SelectValue placeholder="Plataforma (Pronto)" />
+              <SelectValue placeholder="Plataforma" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="all">Todas las Plataformas</SelectItem>
               {platforms.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
 
-          <Select value={selectedGenre} onValueChange={setSelectedGenre} disabled>
+          <Select value={selectedGenre} onValueChange={setSelectedGenre}>
             <SelectTrigger className="bg-background">
-              <SelectValue placeholder="Género (Pronto)" />
+              <SelectValue placeholder="Género" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="all">Todos los Géneros</SelectItem>
               {genres.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -151,7 +154,7 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
       ) : (
         <div className="text-center py-24 bg-muted/20 rounded-lg border-2 border-dashed">
           <h3 className="font-headline text-2xl font-bold">No se encontraron juegos</h3>
-          <p className="text-muted-foreground mt-2">Intenta ajustar tu búsqueda.</p>
+          <p className="text-muted-foreground mt-2">Prueba seleccionando "Todas" o "Todos" para ver el catálogo completo.</p>
           <Button onClick={resetFilters} variant="link" className="mt-4 text-primary">
             Limpiar filtros
           </Button>
