@@ -1,15 +1,12 @@
 import { ProductSchema } from './schemas';
 import { z } from 'zod';
 
-// Configuración dinámica de la URL base
 const getBaseUrl = () => {
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   }
-  
   const hostname = window.location.hostname;
-  const port = '5000'; 
-  
+  const port = '9003'; 
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
   if (envUrl) {
      if (envUrl.includes('localhost') && hostname !== 'localhost') {
@@ -17,7 +14,6 @@ const getBaseUrl = () => {
      }
      return envUrl;
   }
-
   return `http://${hostname}:${port}`;
 };
 
@@ -48,20 +44,12 @@ export class ApiClient {
   static async getProfile() { return this.request('/auth/profile'); }
   static async logout() { return this.request('/auth/logout', { method: 'POST' }); }
 
-  // Productos con Filtros Avanzados
-  static async getProducts(params?: { 
-    page?: number; 
-    limit?: number; 
-    search?: string;
-    platform?: string; // Nuevo parámetro
-    genre?: string;    // Nuevo parámetro
-  }) {
+  // Productos
+  static async getProducts(params?: { page?: number; limit?: number; search?: string; platform?: string; genre?: string; }) {
     const query = new URLSearchParams();
     if (params?.page) query.append("page", params.page.toString());
     if (params?.limit) query.append("limit", params.limit.toString());
     if (params?.search) query.append("search", params.search);
-    
-    // Lógica de filtrado: Solo enviar si no es 'all' y tiene valor
     if (params?.platform && params.platform !== 'all') query.append("platform", params.platform);
     if (params?.genre && params.genre !== 'all') query.append("genre", params.genre);
   
@@ -70,17 +58,10 @@ export class ApiClient {
   
     if (response.data && Array.isArray(response.data)) {
       const parsedProducts = response.data.map((item: any) => {
-        try {
-          return ProductSchema.parse(item);
-        } catch (e) {
-          console.error("Error parseando producto:", item, e);
-          return null;
-        }
+        try { return ProductSchema.parse(item); } catch (e) { return null; }
       }).filter(Boolean);
-
       return { products: parsedProducts, meta: response.meta };
     }
-    
     return { products: [], meta: { total: 0, page: 1, limit: 10, totalPages: 1 } };
   }
 
@@ -91,32 +72,19 @@ export class ApiClient {
   
   static async createProduct(productData: any) {
     const backendPayload = {
-      nombre: productData.name,
-      descripcion: productData.description,
-      precio: parseFloat(productData.price),
-      plataformaId: productData.platformId,
-      generoId: productData.genreId,
-      tipo: productData.type === 'Physical' ? 'Fisico' : 'Digital',
-      fechaLanzamiento: new Date(),
-      desarrollador: productData.developer,
-      imagenUrl: productData.imageUrl,
-      stock: parseInt(productData.stock),
-      activo: true
+      nombre: productData.name, descripcion: productData.description, precio: parseFloat(productData.price),
+      plataformaId: productData.platformId, generoId: productData.genreId, tipo: productData.type === 'Physical' ? 'Fisico' : 'Digital',
+      fechaLanzamiento: new Date(), desarrollador: productData.developer, imagenUrl: productData.imageUrl,
+      stock: parseInt(productData.stock), activo: true
     };
     return this.request('/products', { method: 'POST', body: JSON.stringify(backendPayload) });
   }
 
   static async updateProduct(id: string, productData: any) {
     const backendPayload = { 
-        nombre: productData.name, 
-        descripcion: productData.description, 
-        precio: parseFloat(productData.price),
-        stock: parseInt(productData.stock), 
-        imagenUrl: productData.imageUrl,
-        plataformaId: productData.platformId, 
-        generoId: productData.genreId,
-        desarrollador: productData.developer,
-        tipo: productData.type === 'Physical' ? 'Fisico' : 'Digital'
+        nombre: productData.name, descripcion: productData.description, precio: parseFloat(productData.price),
+        stock: parseInt(productData.stock), imagenUrl: productData.imageUrl, plataformaId: productData.platformId, 
+        generoId: productData.genreId, desarrollador: productData.developer, tipo: productData.type === 'Physical' ? 'Fisico' : 'Digital'
     };
     return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(backendPayload) });
   }
@@ -127,23 +95,17 @@ export class ApiClient {
   
   static async getCategories() { return this.request('/categories'); }
 
-  // Carrito y Wishlist
+  // Carrito
   static async getCart(userId?: string) {
     if (!userId) return { cart: { items: [] } };
     const data = await this.request(`/cart/${userId}`);
-    
     if (data.cart?.items) {
        data.cart.items = data.cart.items.map((item: any) => {
          let parsedProduct = null;
-         if (item.product) {
-            try { parsedProduct = ProductSchema.parse(item.product); } catch(e) {}
-         }
+         if (item.product) { try { parsedProduct = ProductSchema.parse(item.product); } catch(e) {} }
          return {
-           ...item,
-           id: item._id,
-           productId: item.product?._id,
-           name: parsedProduct?.name || item.name,
-           price: parsedProduct?.price || item.price,
+           ...item, id: item._id, productId: item.product?._id,
+           name: parsedProduct?.name || item.name, price: parsedProduct?.price || item.price,
            image: parsedProduct?.imageId || item.image
          };
        });
@@ -167,6 +129,7 @@ export class ApiClient {
     return this.request(`/cart/${userId}`, { method: 'DELETE' });
   }
 
+  // Wishlist
   static async getWishlist(userId: string) {
     const response = await this.request(`/wishlist/${userId}`);
     if (Array.isArray(response.wishlist)) {
@@ -181,7 +144,13 @@ export class ApiClient {
     return this.request('/wishlist/toggle', { method: 'POST', body: JSON.stringify({ userId, productId }) });
   }
 
+  // ÓRDENES
   static async createOrder(orderData: any) {
     return this.request('/orders', { method: 'POST', body: JSON.stringify(orderData) });
+  }
+
+  // Método público para obtener órdenes de usuario
+  static async getUserOrders(userId: string) {
+    return this.request(`/orders/myorders/${userId}`);
   }
 }
