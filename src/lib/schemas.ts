@@ -34,69 +34,88 @@ export const GenreSchema = z.object({
 });
 
 // Schema para Producto (Mapeando respuesta del Backend)
-export const ProductSchema = z.object({
-  _id: z.string(),
-  nombre: z.string(),
-  descripcion: z.string(),
-  precio: z.number(),
-  stock: z.number().default(0),
-  imagenUrl: z.string().nullable().optional(),
-  // Manejamos el caso de que venga poblado (objeto) o solo ID (string)
-  plataformaId: z.union([z.string(), PlatformSchema]),
-  generoId: z.union([z.string(), GenreSchema]),
-  tipo: z.enum(['Fisico', 'Digital']),
-  desarrollador: z.string(),
-  calificacion: z.number().default(0),
-  fechaLanzamiento: z.string().or(z.date()).optional(),
-}).transform((data) => {
-  
+export const ProductSchema = z.preprocess((val: any) => {
+  if (typeof val === 'object' && val !== null) {
+    // Map _id to id if id is missing
+    if (!val.id && val._id) {
+      val.id = val._id;
+    }
+    // Fail-safe for price: ensure it's not undefined/NaN before coercion
+    if (val.price === undefined || val.price === null || isNaN(Number(val.price))) {
+      val.price = 0;
+    }
+    // Fail-safe for name
+    if (!val.name) {
+      val.name = "Unknown Product";
+    }
+  }
+  return val;
+}, z.object({
+  id: z.string().optional().default("missing-id"),
+  name: z.string().default("Unknown Product"),
+  description: z.string().optional().default(""),
+  price: z.coerce.number().default(0),
+  stock: z.coerce.number().default(0),
+  imageId: z.string().nullable().optional(),
+  // Backend returns objects for platform/genre now
+  platform: z.object({ id: z.string(), name: z.string() }).or(z.string()).optional(),
+  genre: z.object({ id: z.string(), name: z.string() }).or(z.string()).optional(),
+  type: z.string().optional().default("Digital"),
+  developer: z.string().optional().default("Unknown"),
+  rating: z.coerce.number().default(0),
+  releaseDate: z.string().or(z.date()).optional(),
+  active: z.boolean().optional(),
+})).transform((data: any) => {
+
   // Lógica de resolución de Plataforma
   let platformData = { id: 'unknown', name: 'Plataforma' };
-  if (typeof data.plataformaId === 'object') {
-     platformData = { 
-       id: (data.plataformaId as any)._id || (data.plataformaId as any).id, 
-       name: data.plataformaId.nombre 
-     };
-  } else if (typeof data.plataformaId === 'string') {
-     // AQUÍ ESTÁ EL ARREGLO: Buscamos el nombre en el diccionario
-     const pId = data.plataformaId;
-     platformData = { 
-       id: pId, 
-       name: PLATFORM_NAMES[pId] || pId // Si no existe en el mapa, usa el ID original
-     };
+  if (data.platform && typeof data.platform === 'object') {
+    const pId = data.platform.id;
+    platformData = {
+      id: pId,
+      name: PLATFORM_NAMES[pId] || data.platform.name || pId
+    };
+  } else if (typeof data.platform === 'string') {
+    const pId = data.platform;
+    platformData = {
+      id: pId,
+      name: PLATFORM_NAMES[pId] || pId
+    };
   }
 
   // Lógica de resolución de Género
   let genreData = { id: 'unknown', name: 'Género' };
-  if (typeof data.generoId === 'object') {
-     genreData = { 
-       id: (data.generoId as any)._id || (data.generoId as any).id, 
-       name: data.generoId.nombre 
-     };
-  } else if (typeof data.generoId === 'string') {
-     // AQUÍ ESTÁ EL ARREGLO: Buscamos el nombre en el diccionario
-     const gId = data.generoId;
-     genreData = { 
-       id: gId, 
-       name: GENRE_NAMES[gId] || gId 
-     };
+  if (data.genre && typeof data.genre === 'object') {
+    const gId = data.genre.id;
+    genreData = {
+      id: gId,
+      name: GENRE_NAMES[gId] || data.genre.name || gId
+    };
+  } else if (typeof data.genre === 'string') {
+    const gId = data.genre;
+    genreData = {
+      id: gId,
+      name: GENRE_NAMES[gId] || gId
+    };
   }
 
   return {
-    id: data._id,
-    name: data.nombre,
-    description: data.descripcion,
-    price: data.precio,
+    id: data.id, // ID is direct now
+    name: data.name,
+    description: data.description,
+    price: data.price,
     stock: data.stock,
-    imageId: data.imagenUrl && (data.imagenUrl.startsWith('http') || data.imagenUrl.startsWith('/')) 
-      ? data.imagenUrl 
-      : "/placeholder.png",
+    // Backend sends 'imageId' directly which is the URL
+    imageId: data.imageId && (data.imageId.startsWith('http') || data.imageId.startsWith('/'))
+      ? data.imageId
+      : "https://placehold.co/600x400/png?text=4Fun",
     platform: platformData,
     genre: genreData,
-    type: data.tipo === 'Fisico' ? 'Physical' : 'Digital',
-    developer: data.desarrollador,
-    rating: data.calificacion,
-    releaseDate: data.fechaLanzamiento ? new Date(data.fechaLanzamiento).toISOString() : new Date().toISOString()
+    type: data.type === 'Fisico' ? 'Physical' : 'Digital',
+    developer: data.developer,
+    rating: data.rating,
+    releaseDate: data.releaseDate ? new Date(data.releaseDate).toISOString() : new Date().toISOString(),
+    active: data.active
   };
 });
 

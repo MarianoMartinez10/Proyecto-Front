@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast'; // Feedback visual añadido
 export interface CartItem {
   id: string; productId: string; name: string; price: number; quantity: number; image?: string;
   // Campos normalizados para evitar errores de renderizado
-  platform?: { name: string }; 
+  platform?: { name: string };
 }
 
 interface CartContextType {
@@ -30,23 +30,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Sincronización robusta
-  const syncData = async () => {
+  const fetchCart = async () => {
     try {
-      setIsLoading(true);
-      // El ApiClient envía la cookie HttpOnly automáticamente
       const cartRes = await ApiClient.getCart(user?.id);
       setCart(cartRes.cart?.items || []);
-      
-      if (user?.id) {
-        const wishRes = await ApiClient.getWishlist(user.id);
-        setWishlist(wishRes);
-      }
-    } catch (err) { 
-      console.error("Error syncing cart:", err);
-    } finally { 
-      setIsLoading(false); 
+    } catch (err) {
+      console.error("Error fetching cart:", err);
     }
+  };
+
+  const fetchWishlist = async () => {
+    if (!user?.id) return;
+    try {
+      const wishRes = await ApiClient.getWishlist(user.id);
+      setWishlist(wishRes);
+    } catch (err) {
+      console.error("Error fetching wishlist:", err);
+    }
+  };
+
+  // Sincronización robusta
+  const syncData = async () => {
+    setIsLoading(true);
+    await Promise.all([fetchCart(), fetchWishlist()]);
+    setIsLoading(false);
   };
 
   // Efecto principal de carga
@@ -59,7 +66,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (local) {
         try { setCart(JSON.parse(local)); } catch { setCart([]); }
       }
-      setWishlist([]); 
+      setWishlist([]);
       setIsLoading(false);
     }
   }, [user]); // Dependencia solo de user
@@ -73,15 +80,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       price: product.price,
       quantity,
       image: product.imageId || product.image,
-      platform: product.platform 
+      platform: product.platform
     };
 
     if (user) {
       // Estrategia: Actualización Optimista (Optimistic UI)
-      setCart(prev => [...prev, newItem]); 
+      setCart(prev => [...prev, newItem]);
       try {
         await ApiClient.addToCart(user.id, product.id, quantity);
-        await syncData(); // Resincronizar ID real del backend
+        await fetchCart(); // Solo resincronizar carrito para obtener IDs reales
         toast({ title: "Agregado al carrito", description: `${product.name} añadido.` });
       } catch (e) {
         setCart(prev => prev.filter(i => i.id !== newItem.id)); // Rollback
@@ -105,53 +112,53 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateQuantity = async (itemId: string, quantity: number) => {
-     if (quantity < 1) return;
-     if (user) { 
-        // Optimistic Update
-        const oldCart = [...cart];
-        setCart(prev => prev.map(i => i.id === itemId ? {...i, quantity} : i));
-        try {
-            await ApiClient.updateCartItem(user.id, itemId, quantity);
-        } catch {
-            setCart(oldCart); // Rollback
-        }
-     } else {
-       const newCart = cart.map(i => i.id === itemId ? {...i, quantity} : i);
-       setCart(newCart); 
-       localStorage.setItem('cart', JSON.stringify(newCart));
-     }
+    if (quantity < 1) return;
+    if (user) {
+      // Optimistic Update
+      const oldCart = [...cart];
+      setCart(prev => prev.map(i => i.id === itemId ? { ...i, quantity } : i));
+      try {
+        await ApiClient.updateCartItem(user.id, itemId, quantity);
+      } catch {
+        setCart(oldCart); // Rollback
+      }
+    } else {
+      const newCart = cart.map(i => i.id === itemId ? { ...i, quantity } : i);
+      setCart(newCart);
+      localStorage.setItem('cart', JSON.stringify(newCart));
+    }
   };
 
   const removeFromCart = async (itemId: string) => {
-    if (user) { 
-        const oldCart = [...cart];
-        setCart(prev => prev.filter(i => i.id !== itemId));
-        try {
-            await ApiClient.removeFromCart(user.id, itemId); 
-        } catch {
-            setCart(oldCart);
-        }
+    if (user) {
+      const oldCart = [...cart];
+      setCart(prev => prev.filter(i => i.id !== itemId));
+      try {
+        await ApiClient.removeFromCart(user.id, itemId);
+      } catch {
+        setCart(oldCart);
+      }
     } else {
       const newCart = cart.filter(i => i.id !== itemId);
-      setCart(newCart); 
+      setCart(newCart);
       localStorage.setItem('cart', JSON.stringify(newCart));
     }
   };
 
   const clearCart = async () => {
-    if (user) { 
-        setCart([]);
-        await ApiClient.clearCart(user.id); 
-    } else { 
-        setCart([]); 
-        localStorage.removeItem('cart'); 
+    if (user) {
+      setCart([]);
+      await ApiClient.clearCart(user.id);
+    } else {
+      setCart([]);
+      localStorage.removeItem('cart');
     }
   };
 
   const toggleWishlist = async (game: Game) => {
     if (!user) {
-        toast({ variant: "destructive", title: "Acción requerida", description: "Inicia sesión para guardar favoritos." });
-        return;
+      toast({ variant: "destructive", title: "Acción requerida", description: "Inicia sesión para guardar favoritos." });
+      return;
     }
     const exists = isInWishlist(game.id);
     // Optimistic UI
@@ -162,17 +169,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const isInWishlist = (id: string) => wishlist.some(g => g.id === id);
 
   return (
-    <CartContext.Provider value={{ 
-        cart, addToCart, removeFromCart, updateQuantity, clearCart, 
-        cartTotal, cartCount, isLoading, wishlist, toggleWishlist, isInWishlist 
+    <CartContext.Provider value={{
+      cart, addToCart, removeFromCart, updateQuantity, clearCart,
+      cartTotal, cartCount, isLoading, wishlist, toggleWishlist, isInWishlist
     }}>
-        {children}
+      {children}
     </CartContext.Provider>
   );
 }
 
-export function useCart() { 
-    const c = useContext(CartContext); 
-    if (!c) throw new Error('Use in provider'); 
-    return c; 
+export function useCart() {
+  const c = useContext(CartContext);
+  if (!c) throw new Error('Use in provider');
+  return c;
 }

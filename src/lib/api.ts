@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9003/api';
 
 export class ApiError extends Error {
   constructor(
@@ -21,9 +21,9 @@ async function apiRequest<T>(
 ): Promise<T> {
   const { token, ...fetchOptions } = options;
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...fetchOptions.headers,
+    ...(fetchOptions.headers as Record<string, string> || {}),
   };
 
   if (token) {
@@ -52,7 +52,7 @@ async function apiRequest<T>(
     if (error instanceof ApiError) {
       throw error;
     }
-    
+
     throw new ApiError(
       'Network error or server is unavailable',
       0,

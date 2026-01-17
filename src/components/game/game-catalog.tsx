@@ -14,19 +14,41 @@ interface GameCatalogProps {
   initialGames: Game[];
 }
 
+import { useRouter, useSearchParams } from 'next/navigation';
+
 export function GameCatalog({ initialGames }: GameCatalogProps) {
-  // Estado para los filtros
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+
+  // Estado para los filtros de Backend
   const [games, setGames] = useState<Game[]>(initialGames || []);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedPlatform, setSelectedPlatform] = useState('all');
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [loading, setLoading] = useState(false);
-  
+
+  // Estado para filtros Frontend (Precio)
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+
   // Estado para la paginación
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Efecto principal: Recargar productos cuando cambia CUALQUIER filtro
+  // UseRef para evitar el fetch inicial (ya tenemos data del servidor)
+  // Nota: Si hay búsqueda inicial en URL, QUEREMOS que haga fetch, así que validamos eso.
+  const isFirstRender = React.useRef(!initialSearch);
+
+  // Filtrado Frontend de Precios
+  const displayedGames = games.filter(game => {
+    const price = game.price;
+    const min = minPrice ? parseFloat(minPrice) : 0;
+    const max = maxPrice ? parseFloat(maxPrice) : Infinity;
+    return price >= min && price <= max;
+  });
+
+  // Efecto principal: Recargar productos cuando cambia CUALQUIER filtro de BACKEND
   useEffect(() => {
     const fetchFilteredGames = async () => {
       setLoading(true);
@@ -35,15 +57,15 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
           page,
           limit: 8,
           search: searchQuery,
-          platform: selectedPlatform, // Ahora enviamos la plataforma
-          genre: selectedGenre        // Ahora enviamos el género
+          platform: selectedPlatform,
+          genre: selectedGenre
         });
 
         if (Array.isArray(response)) {
-           setGames(response);
+          setGames(response as any as Game[]);
         } else {
-           setGames(response.products);
-           setTotalPages(response.meta?.totalPages || 1);
+          setGames(response.products as any as Game[]);
+          setTotalPages(response.meta?.totalPages || 1);
         }
       } catch (error) {
         console.error("Error fetching games:", error);
@@ -54,13 +76,18 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
 
     // Debounce solo para la búsqueda de texto para no saturar la API
     const timeoutId = setTimeout(() => {
-        fetchFilteredGames();
+      // Evitar fetch inicial redundante SOLO si no vino búsqueda en URL
+      if (isFirstRender.current) {
+        isFirstRender.current = false;
+        return;
+      }
+      fetchFilteredGames();
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, page, selectedPlatform, selectedGenre]); // Añadimos dependencias críticas
+  }, [searchQuery, page, selectedPlatform, selectedGenre]);
 
-  // Resetear paginación si cambian los filtros (UX Mejorada)
+  // Resetear paginación si cambian los filtros principales
   useEffect(() => {
     setPage(1);
   }, [searchQuery, selectedPlatform, selectedGenre]);
@@ -69,27 +96,63 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
     setSearchQuery('');
     setSelectedPlatform('all');
     setSelectedGenre('all');
+    setMinPrice('');
+    setMaxPrice('');
     setPage(1);
+    router.push('/productos'); // Limpiar URL
   };
 
   return (
     <section className="py-12 md:py-16">
-      <div className="space-y-4 mb-8">
+      <div className="space-y-6 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h2 className="font-headline text-3xl font-bold md:text-4xl">Explorar Colección</h2>
         </div>
-        
-        {/* Filtros */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end bg-muted/30 p-6 rounded-lg border border-border/50">
-          <Input
-            placeholder="Buscar por nombre..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="md:col-span-2 bg-background"
-          />
-          
+
+        {/* Fila Superior: Búsqueda, Precio y Reset */}
+        <div className="flex flex-col md:flex-row gap-4 items-end bg-muted/30 p-6 rounded-lg border border-border/50">
+          {/* Búsqueda */}
+          <div className="w-full md:flex-1">
+            <Input
+              placeholder="Buscar por nombre..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-background w-full"
+            />
+          </div>
+
+          {/* Filtro de Precio (Frontend) */}
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              placeholder="Mín"
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value)}
+              className="bg-background w-[100px]"
+              min={0}
+            />
+            <span className="text-muted-foreground">-</span>
+            <Input
+              type="number"
+              placeholder="Máx"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+              className="bg-background w-[100px]"
+              min={0}
+            />
+          </div>
+
+          {/* Botón Limpiar */}
+          <Button onClick={resetFilters} variant="outline" className="border-dashed whitespace-nowrap">
+            <ListFilter className="mr-2 h-4 w-4" />
+            Limpiar Filtros
+          </Button>
+        </div>
+
+        {/* Fila Inferior: Filtros de Categoría */}
+        <div className="flex flex-col sm:flex-row gap-4">
           <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
-            <SelectTrigger className="bg-background">
+            <SelectTrigger className="bg-background w-full sm:w-[250px]">
               <SelectValue placeholder="Plataforma" />
             </SelectTrigger>
             <SelectContent>
@@ -99,7 +162,7 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
           </Select>
 
           <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-            <SelectTrigger className="bg-background">
+            <SelectTrigger className="bg-background w-full sm:w-[250px]">
               <SelectValue placeholder="Género" />
             </SelectTrigger>
             <SelectContent>
@@ -107,27 +170,22 @@ export function GameCatalog({ initialGames }: GameCatalogProps) {
               {genres.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
-
-          <Button onClick={resetFilters} variant="outline" className="w-full border-dashed md:col-start-4">
-            <ListFilter className="mr-2 h-4 w-4" />
-            Limpiar Filtros
-          </Button>
         </div>
       </div>
 
       {/* Grid de Productos */}
       {loading ? (
         <div className="py-24 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
         </div>
-      ) : games.length > 0 ? (
+      ) : displayedGames.length > 0 ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {games.map((game) => (
+            {displayedGames.map((game) => (
               <GameCard key={game.id} game={game} />
             ))}
           </div>
-          
+
           {/* Paginación */}
           <div className="flex justify-center items-center gap-4 mt-12">
             <Button

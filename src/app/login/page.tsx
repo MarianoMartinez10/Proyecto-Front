@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,9 @@ import { Loader2, LogIn } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectPath = searchParams.get('redirect') || '/';
+
   const { login, loading: authLoading } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -38,7 +41,7 @@ export default function LoginPage() {
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
-        router.push("/");
+        router.push(redirectPath);
         router.refresh();
       } else {
         setError(result.message || "Error al iniciar sesión");

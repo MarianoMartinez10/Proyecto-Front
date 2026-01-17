@@ -23,6 +23,7 @@ export type Game = {
   rating: number;
   stock: number;
   active?: boolean;
+  trailerUrl?: string; // URL del video/trailer
 };
 
 // Unificamos User (eliminamos duplicidad de 'Usuario')
@@ -44,14 +45,24 @@ export type CartItem = {
   platformName?: string;
 };
 
-// Respuesta API Genérica
+// Metadata de Paginación
+export type Meta = {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+// Respuesta Paginada Estandarizada
+export type PaginatedResponse<T> = {
+  products: T[];
+  meta: Meta;
+};
+
+// Respuesta API Genérica (Legacy support if needed, or update to use Meta)
 export type ApiResponse<T> = {
   success: boolean;
   message?: string;
   data?: T;
-  pagination?: {
-    total: number;
-    page: number;
-    pages: number;
-  };
+  pagination?: Meta;
 };

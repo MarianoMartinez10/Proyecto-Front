@@ -2,13 +2,7 @@
 
 import { useContext, createContext, useState, useEffect, ReactNode } from 'react';
 import { ApiClient } from '@/lib/api-client';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+import type { User } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
@@ -40,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     };
-    
+
     checkSession();
   }, []);
 

@@ -14,10 +14,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function Header() {
   const { cartCount } = useCart();
   const { user, logout } = useAuth();
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/productos?search=${encodeURIComponent(searchQuery)}`);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -36,25 +47,27 @@ export function Header() {
           <Link href="/contacto" className="transition-colors hover:text-primary">
             Contacto
           </Link>
-          
+
           {/* Enlace de Gestión solo para Admins */}
           {user && user.role === 'admin' && (
-             <Link href="/admin/products" className="transition-colors text-primary font-bold flex items-center gap-1">
-               <Settings className="h-4 w-4" />
-               Gestión
-             </Link>
+            <Link href="/admin/products" className="transition-colors text-primary font-bold flex items-center gap-1">
+              <Settings className="h-4 w-4" />
+              Gestión
+            </Link>
           )}
         </nav>
 
         <div className="flex items-center gap-2 ml-auto">
-          <div className="hidden lg:flex items-center">
+          <form onSubmit={handleSearch} className="hidden lg:flex items-center relative">
             <Search className="absolute ml-3 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               type="search"
               placeholder="Buscar juegos..."
               className="pl-10 w-[200px] lg:w-[300px]"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+          </form>
 
           {user && (
             <>

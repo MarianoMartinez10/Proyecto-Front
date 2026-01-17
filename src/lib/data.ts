@@ -5,7 +5,6 @@ export const platforms: Platform[] = [
   { id: 'xbox', name: 'Xbox Series X' },
   { id: 'switch', name: 'Nintendo Switch' },
   { id: 'pc', name: 'PC' },
-  { id: 'multi', name: 'Multiplataforma' },
 ];
 
 export const genres: Genre[] = [
@@ -14,7 +13,6 @@ export const genres: Genre[] = [
   { id: 'strategy', name: 'Estrategia' },
   { id: 'adventure', name: 'Aventura' },
   { id: 'sports', name: 'Deportes' },
-  { id: 'puzzle', name: 'Puzzle' },
   { id: 'racing', name: 'Carreras' },
   { id: 'shooter', name: 'Disparos' },
   { id: 'simulation', name: 'Simulación' },

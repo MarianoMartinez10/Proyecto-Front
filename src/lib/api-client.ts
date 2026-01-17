@@ -1,20 +1,13 @@
-import { ProductSchema } from './schemas';
+import { ProductSchema, type Product } from './schemas';
+import type { PaginatedResponse } from './types';
 import { z } from 'zod';
 
 const getBaseUrl = () => {
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9003';
   }
-  const hostname = window.location.hostname;
-  const port = '9003'; 
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl) {
-     if (envUrl.includes('localhost') && hostname !== 'localhost') {
-         return envUrl.replace('localhost', hostname);
-     }
-     return envUrl;
-  }
-  return `http://${hostname}:${port}`;
+  // Client side: use relative path to leverage Next.js rewrites (proxies to backend)
+  return '';
 };
 
 export class ApiClient {
@@ -24,12 +17,12 @@ export class ApiClient {
     const url = `${baseUrl}${apiPath}${endpoint}`;
 
     const response = await fetch(url, {
+      cache: 'no-store', // Default, can be overridden by options
       ...options,
-      cache: 'no-store',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...options.headers },
     });
-    
+
     const data = await response.json();
 
     if (!response.ok) {
@@ -45,46 +38,97 @@ export class ApiClient {
   static async logout() { return this.request('/auth/logout', { method: 'POST' }); }
 
   // Productos
-  static async getProducts(params?: { page?: number; limit?: number; search?: string; platform?: string; genre?: string; }) {
+  static async getProducts(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    platform?: string;
+    genre?: string;
+  }, options?: RequestInit): Promise<PaginatedResponse<Product>> {
     const query = new URLSearchParams();
     if (params?.page) query.append("page", params.page.toString());
     if (params?.limit) query.append("limit", params.limit.toString());
     if (params?.search) query.append("search", params.search);
     if (params?.platform && params.platform !== 'all') query.append("platform", params.platform);
     if (params?.genre && params.genre !== 'all') query.append("genre", params.genre);
-  
+
     const queryString = query.toString() ? `?${query.toString()}` : "";
-    const response = await this.request(`/products${queryString}`);
-  
-    if (response.data && Array.isArray(response.data)) {
-      const parsedProducts = response.data.map((item: any) => {
-        try { return ProductSchema.parse(item); } catch (e) { return null; }
-      }).filter(Boolean);
-      return { products: parsedProducts, meta: response.meta };
+    const response = await this.request(`/products${queryString}`, options);
+
+    // Default empty state
+    const emptyMeta = { total: 0, page: 1, limit: 10, totalPages: 1 };
+
+    // Check if response is array (direct list) or object (paginated)
+    let rawProducts = [];
+    let meta = emptyMeta;
+
+    if (Array.isArray(response)) {
+      rawProducts = response;
+    } else if (response.data && Array.isArray(response.data)) {
+      rawProducts = response.data;
+      // Map backend specific pagination keys to our Meta interface
+      meta = {
+        total: response.pagination?.total || response.meta?.total || 0,
+        page: response.pagination?.page || response.meta?.page || 1,
+        limit: response.pagination?.limit || response.meta?.limit || 10,
+        totalPages: response.pagination?.pages || response.meta?.totalPages || 1
+      };
+    } else if (response.products && Array.isArray(response.products)) {
+      // Handle case where backend might conform to our interface already
+      rawProducts = response.products;
+      meta = response.meta || emptyMeta;
     }
-    return { products: [], meta: { total: 0, page: 1, limit: 10, totalPages: 1 } };
+
+    const parsedProducts = rawProducts.map((item: any) => {
+      try { return ProductSchema.parse(item); } catch (e) {
+        console.error("Product parse error:", e);
+        return null;
+      }
+    }).filter(Boolean) as Product[];
+
+    return {
+      products: parsedProducts,
+      meta
+    };
   }
 
   static async getProductById(id: string) {
     const response = await this.request(`/products/${id}`);
-    return ProductSchema.parse(response.data);
+    return ProductSchema.parse(response.data || response);
   }
-  
+
   static async createProduct(productData: any) {
     const backendPayload = {
-      nombre: productData.name, descripcion: productData.description, precio: parseFloat(productData.price),
-      plataformaId: productData.platformId, generoId: productData.genreId, tipo: productData.type === 'Physical' ? 'Fisico' : 'Digital',
-      fechaLanzamiento: new Date(), desarrollador: productData.developer, imagenUrl: productData.imageUrl,
-      stock: parseInt(productData.stock), activo: true
+      name: productData.name,
+      description: productData.description,
+      price: parseFloat(productData.price),
+      platform: productData.platformId, // Changed to 'platform' to match read schema guess, or keep as ID?
+      genre: productData.genreId,       // Changed to 'genre'
+      type: productData.type,           // "Digital" or "Physical"
+      releaseDate: new Date(),
+      developer: productData.developer,
+      imageId: productData.imageUrl,    // Changed to imageId
+      stock: parseInt(productData.stock),
+      active: true
     };
     return this.request('/products', { method: 'POST', body: JSON.stringify(backendPayload) });
   }
 
   static async updateProduct(id: string, productData: any) {
-    const backendPayload = { 
-        nombre: productData.name, descripcion: productData.description, precio: parseFloat(productData.price),
-        stock: parseInt(productData.stock), imagenUrl: productData.imageUrl, plataformaId: productData.platformId, 
-        generoId: productData.genreId, desarrollador: productData.developer, tipo: productData.type === 'Physical' ? 'Fisico' : 'Digital'
+    // Shotgun approach: enviar múltiples formatos para asegurar que el backend lo tome
+    const backendPayload = {
+      name: productData.name,
+      description: productData.description,
+      price: Number(productData.price),
+      stock: parseInt(String(productData.stock), 10), // Forzar entero
+      imageId: productData.imageUrl,
+      // Enviar ambos formatos de ID por seguridad
+      platform: productData.platformId,
+      platformId: productData.platformId,
+      genre: productData.genreId,
+      genreId: productData.genreId,
+      developer: productData.developer,
+      type: productData.type
     };
     return this.request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(backendPayload) });
   }
@@ -92,7 +136,7 @@ export class ApiClient {
   static async deleteProduct(id: string) {
     return this.request(`/products/${id}`, { method: 'DELETE' });
   }
-  
+
   static async getCategories() { return this.request('/categories'); }
 
   // Carrito
@@ -100,15 +144,22 @@ export class ApiClient {
     if (!userId) return { cart: { items: [] } };
     const data = await this.request(`/cart/${userId}`);
     if (data.cart?.items) {
-       data.cart.items = data.cart.items.map((item: any) => {
-         let parsedProduct = null;
-         if (item.product) { try { parsedProduct = ProductSchema.parse(item.product); } catch(e) {} }
-         return {
-           ...item, id: item._id, productId: item.product?._id,
-           name: parsedProduct?.name || item.name, price: parsedProduct?.price || item.price,
-           image: parsedProduct?.imageId || item.image
-         };
-       });
+      data.cart.items = data.cart.items.map((item: any) => {
+        let parsedProduct = null;
+        if (item.product) {
+          try {
+            parsedProduct = ProductSchema.parse(item.product);
+          } catch (e) {
+            console.error(`[ApiClient] Failed to parse product for cart item ${item._id}:`, e);
+          }
+        }
+        return {
+          ...item, id: item._id, productId: item.product?._id,
+          name: parsedProduct?.name || item.name || "Unknown Product",
+          price: parsedProduct?.price ?? item.price ?? 0,
+          image: parsedProduct?.imageId || item.image
+        };
+      });
     }
     return data;
   }
@@ -133,9 +184,9 @@ export class ApiClient {
   static async getWishlist(userId: string) {
     const response = await this.request(`/wishlist/${userId}`);
     if (Array.isArray(response.wishlist)) {
-        return response.wishlist.map((item: any) => {
-            try { return ProductSchema.parse(item); } catch { return null; }
-        }).filter(Boolean);
+      return response.wishlist.map((item: any) => {
+        try { return ProductSchema.parse(item); } catch { return null; }
+      }).filter(Boolean);
     }
     return [];
   }

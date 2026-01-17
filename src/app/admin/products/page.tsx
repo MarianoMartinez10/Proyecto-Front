@@ -10,11 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import type { Product } from "@/lib/schemas"; // Import strict Product type
+import type { Meta } from "@/lib/types"; // Import strict Meta type
 
 export default function AdminProductsPage() {
-  const { loading: authLoading } = useAuth(); // Ya no necesitamos 'token' aquí
-  const [products, setProducts] = useState<any[]>([]);
-  const [meta, setMeta] = useState({ page: 1, totalPages: 1 });
+  const { loading: authLoading } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [meta, setMeta] = useState<Meta>({ total: 0, page: 1, limit: 10, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -22,13 +24,9 @@ export default function AdminProductsPage() {
     try {
       setLoading(true);
       const response = await ApiClient.getProducts({ page, limit: 10 });
-      
-      if (Array.isArray(response)) {
-         setProducts(response);
-      } else {
-         setProducts(response.products);
-         setMeta(response.meta);
-      }
+      // Response is strictly typed as PaginatedResponse now. No guessing using Array.isArray needed.
+      setProducts(response.products);
+      setMeta(response.meta);
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
@@ -51,9 +49,9 @@ export default function AdminProductsPage() {
     if (!confirm("¿Estás seguro de eliminar este producto?")) return;
     try {
       // CORRECCIÓN: Eliminamos el segundo argumento 'token'
-      await ApiClient.deleteProduct(id); 
+      await ApiClient.deleteProduct(id);
       toast({ title: "Producto eliminado", description: "El producto ha sido borrado correctamente (eliminación lógica)." });
-      loadProducts(meta.page); 
+      loadProducts(meta.page);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el producto." });
     }
@@ -88,12 +86,12 @@ export default function AdminProductsPage() {
                 <TableRow key={product.id}>
                   <TableCell>
                     <div className="relative h-12 w-12 rounded overflow-hidden bg-muted">
-                      <Image 
-                        src={(product.imageId && (product.imageId.startsWith('http') || product.imageId.startsWith('/'))) ? product.imageId : '/placeholder.png'} 
-                        alt={product.name} 
-                        fill 
+                      <Image
+                        src={(product.imageId && (product.imageId.startsWith('http') || product.imageId.startsWith('/'))) ? product.imageId : 'https://placehold.co/600x400/png?text=4Fun'}
+                        alt={product.name}
+                        fill
                         sizes="48px"
-                        className="object-cover" 
+                        className="object-cover"
                       />
                     </div>
                   </TableCell>
