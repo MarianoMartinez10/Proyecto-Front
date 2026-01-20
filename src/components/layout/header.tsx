@@ -14,21 +14,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { SearchDialog } from "@/components/search-dialog";
+// ... (imports remain)
 
 export function Header() {
   const { cartCount } = useCart();
   const { user, logout } = useAuth();
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
+  // useRouter is used inside SearchDialog if we move logic there, but we might keep it header too if needed?
+  // Actually SearchDialog handles navigation. We don't need router here for search anymore.
+  // We can remove searchQuery state and handleSearch function from Header if we move it to SearchDialog entirely.
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/productos?search=${encodeURIComponent(searchQuery)}`);
-    }
-  };
+  // Let's keep Header clean.
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -50,7 +46,7 @@ export function Header() {
 
           {/* Enlace de Gestión solo para Admins */}
           {user && user.role === 'admin' && (
-            <Link href="/admin/products" className="transition-colors text-primary font-bold flex items-center gap-1">
+            <Link href="/admin" className="transition-colors text-primary font-bold flex items-center gap-1">
               <Settings className="h-4 w-4" />
               Gestión
             </Link>
@@ -58,16 +54,27 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2 ml-auto">
-          <form onSubmit={handleSearch} className="hidden lg:flex items-center relative">
-            <Search className="absolute ml-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input
-              type="search"
-              placeholder="Buscar juegos..."
-              className="pl-10 w-[200px] lg:w-[300px]"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </form>
+          <SearchDialog
+            trigger={
+              <Button variant="outline" className="hidden lg:flex w-[200px] lg:w-[300px] justify-between text-muted-foreground relative h-9 px-4 py-2">
+                <span className="inline-flex items-center">
+                  <Search className="mr-2 h-4 w-4" />
+                  Buscar...
+                </span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </Button>
+            }
+          />
+          {/* Mobile Search Icon Trigger */}
+          <SearchDialog
+            trigger={
+              <Button variant="ghost" size="icon" className="lg:hidden">
+                <Search className="h-5 w-5" />
+              </Button>
+            }
+          />
 
           {user && (
             <>

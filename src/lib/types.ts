@@ -68,3 +68,23 @@ export type ApiResponse<T> = {
   data?: T;
   pagination?: Meta;
 };
+
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+
+export interface Order {
+  id: string;
+  userId: string;
+  user?: User;
+  items: CartItem[];
+  total: number;
+  status: OrderStatus;
+  createdAt: string;
+  shippingAddress: {
+    fullName: string;
+    street: string;
+    city: string;
+    zip: string;
+    country: string;
+  };
+  paymentMethod: string;
+}

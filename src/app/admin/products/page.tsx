@@ -5,6 +5,8 @@ import Image from "next/image";
 import { ApiClient } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { VisualsManager } from "@/components/admin/visuals-manager";
+import { TableSkeleton } from "@/components/ui/skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -12,8 +14,6 @@ import { Loader2, Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide
 import { formatCurrency } from "@/lib/utils";
 import type { Product } from "@/lib/schemas"; // Import strict Product type
 import type { Meta } from "@/lib/types"; // Import strict Meta type
-import { VisualsManager } from "@/components/admin/visuals-manager";
-
 export default function AdminProductsPage() {
   const { loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
@@ -58,7 +58,15 @@ export default function AdminProductsPage() {
     }
   };
 
-  if (loading || authLoading) return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
+  if (loading || authLoading) return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="h-10 w-32 bg-muted rounded animate-pulse" />
+      </div>
+      <TableSkeleton rows={10} columns={5} />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -141,8 +149,6 @@ export default function AdminProductsPage() {
         </CardContent>
       </Card>
 
-      {/* Gestión de Visuales (Plataformas y Géneros) */}
-      <VisualsManager />
     </div >
   );
 }

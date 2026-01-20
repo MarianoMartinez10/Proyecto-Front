@@ -12,8 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Loader2, Trash2, Plus } from "lucide-react";
+import { Pencil, Loader2, Trash2, Plus, Search } from "lucide-react";
 import type { Platform, Genre } from "@/lib/types";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 // Utility types for our manager
 type VisualType = 'platform' | 'genre';
@@ -54,7 +55,24 @@ export function VisualsManager() {
         fetchData();
     };
 
-    if (loading) return <div className="p-4 flex justify-center"><Loader2 className="animate-spin" /></div>;
+    // We want to show the skeleton INSIDE the tabs to keep layout stable, 
+    // but the current structure has Tabs wrapping the Card... 
+    // Let's render the Skeleton as the full content if loading, preserving the outer Card if possible, or just the skeleton.
+    // For simplicity and better UX, if loading is true, we should render the outer structure (Tabs, CardHeader) and put Skeleton in CardContent.
+    // BUT activeTab is state.
+
+    const [searchTerm, setSearchTerm] = useState("");
+
+    // Simplest approach: Return skeleton with same margin as Card.
+    if (loading) return (
+        <div className="w-full mt-8">
+            <div className="flex justify-between items-center mb-4">
+                <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+                <div className="h-10 w-32 bg-muted rounded animate-pulse" />
+            </div>
+            <TableSkeleton rows={5} columns={4} />
+        </div>
+    );
 
     const getItems = () => {
         switch (activeTab) {
@@ -71,8 +89,13 @@ export function VisualsManager() {
         }
     };
 
+    const filteredItems = getItems().filter(item =>
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as VisualType)} className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as VisualType); setSearchTerm(""); }} className="w-full">
             <Card className="mt-8 border-t-4 border-t-primary/20">
                 <CardHeader className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -82,18 +105,31 @@ export function VisualsManager() {
                             <TabsTrigger value="genre">Géneros</TabsTrigger>
                         </TabsList>
                     </div>
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">Administra Plataformas y Géneros centralizadamente.</p>
-                        <CreateDialog type={activeTab} onUpdate={handleUpdate} label={getLabel()} />
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <p className="text-sm text-muted-foreground mb-2 sm:mb-0">Administra Plataformas y Géneros centralizadamente.</p>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="relative w-full sm:w-64">
+                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar por nombre o ID..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
+                            <CreateDialog type={activeTab} onUpdate={handleUpdate} label={getLabel()} />
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
                     <TabsContent value="platform" className="space-y-4">
-                        <VisualTable items={platforms} type="platform" onUpdate={handleUpdate} />
+                        <VisualTable items={filteredItems} type="platform" onUpdate={handleUpdate} />
                     </TabsContent>
 
                     <TabsContent value="genre" className="space-y-4">
-                        <VisualTable items={genres} type="genre" onUpdate={handleUpdate} />
+                        <VisualTable items={filteredItems} type="genre" onUpdate={handleUpdate} />
                     </TabsContent>
                 </CardContent>
             </Card>
