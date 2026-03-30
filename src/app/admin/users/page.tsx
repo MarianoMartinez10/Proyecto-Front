@@ -39,6 +39,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 // Tipos locales
 interface User {
+    id?: string;
     _id: string;
     name: string;
     email: string;
@@ -196,7 +197,7 @@ export default function UsersPage() {
                                 </TableRow>
                             ) : (
                                 users.map((user) => (
-                                    <TableRow key={user._id}>
+                                    <TableRow key={user.id || user._id}>
                                         <TableCell>
                                             <Avatar>
                                                 {user.avatar ? (
@@ -237,8 +238,8 @@ export default function UsersPage() {
                                         <TableCell className="text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" disabled={actionLoading === user._id}>
-                                                        {actionLoading === user._id ? (
+                                                    <Button variant="ghost" size="icon" disabled={actionLoading === (user.id || user._id)}>
+                                                        {actionLoading === (user.id || user._id) ? (
                                                             <Loader2 className="h-4 w-4 animate-spin" />
                                                         ) : (
                                                             <MoreVertical className="h-4 w-4" />
@@ -247,15 +248,15 @@ export default function UsersPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                                    <DropdownMenuItem onClick={() => router.push(`/admin/users/${user._id}`)}>
-                                                        Ver Detalle CRM
+                                                    <DropdownMenuItem onClick={() => router.push(`/admin/users/${user.id || user._id}`)}>
+                                                        Ver Perfil
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => handleRoleUpdate(user._id, user.role)}>
+                                                    <DropdownMenuItem onClick={() => handleRoleUpdate(user.id || user._id, user.role)}>
                                                         {user.role === 'admin' ? 'Degradar a Usuario' : 'Promover a Admin'}
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(user._id)}>
+                                                    <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(user.id || user._id)}>
                                                         <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>

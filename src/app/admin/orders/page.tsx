@@ -105,7 +105,7 @@ export default function AdminOrdersPage() {
         ? orders.filter(o => {
             const term = searchTerm.toLowerCase();
             return (
-                o._id?.toLowerCase().includes(term) ||
+                (o.id || o._id)?.toLowerCase().includes(term) ||
                 getCustomerName(o).toLowerCase().includes(term) ||
                 getCustomerEmail(o).toLowerCase().includes(term)
             );
@@ -173,8 +173,8 @@ export default function AdminOrdersPage() {
                             </TableHeader>
                             <TableBody>
                                 {filteredOrders.map((order) => (
-                                    <TableRow key={order._id}>
-                                        <TableCell className="font-mono text-xs">{order._id?.slice(-8).toUpperCase()}</TableCell>
+                                    <TableRow key={order.id || order._id}>
+                                        <TableCell className="font-mono text-xs">{(order.id || order._id)?.slice(-8).toUpperCase()}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
                                                 <span className="text-sm">{getCustomerName(order)}</span>
@@ -200,19 +200,19 @@ export default function AdminOrdersPage() {
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Cambiar estado</DropdownMenuLabel>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => handleStatusChange(order._id, 'processing')}>
+                                                    <DropdownMenuItem onClick={() => handleStatusChange(order.id || order._id, 'processing')}>
                                                         Procesando
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleStatusChange(order._id, 'shipped')}>
+                                                    <DropdownMenuItem onClick={() => handleStatusChange(order.id || order._id, 'shipped')}>
                                                         Enviado
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleStatusChange(order._id, 'delivered')}>
+                                                    <DropdownMenuItem onClick={() => handleStatusChange(order.id || order._id, 'delivered')}>
                                                         Entregado
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         className="text-destructive"
-                                                        onClick={() => handleStatusChange(order._id, 'cancelled')}
+                                                        onClick={() => handleStatusChange(order.id || order._id, 'cancelled')}
                                                     >
                                                         Cancelar Orden
                                                     </DropdownMenuItem>
