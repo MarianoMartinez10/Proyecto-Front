@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
 import type { OrderStatus } from "@/lib/types";
-import { MoreHorizontal, Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { MoreHorizontal, Search, Loader2, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ApiClient } from "@/lib/api";
@@ -112,6 +112,43 @@ export default function AdminOrdersPage() {
         })
         : orders;
 
+    const handleExportCSV = () => {
+        if (!filteredOrders.length) {
+            toast({
+                title: "Atención",
+                description: "No hay órdenes para exportar con los filtros actuales.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        const headers = ["ID Orden", "Cliente", "Email", "Método", "Total", "Estado", "Pago", "Fecha"];
+        const rows = filteredOrders.map(o => [
+            (o.id || o._id),
+            `"${getCustomerName(o)}"`,
+            `"${getCustomerEmail(o)}"`,
+            o.paymentMethod || 'mercadopago',
+            o.totalPrice,
+            STATUS_LABELS[o.orderStatus] || o.orderStatus,
+            o.isPaid ? 'Pagado' : 'Pendiente',
+            new Date(o.createdAt).toLocaleDateString('es-AR')
+        ]);
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(e => e.join(","))
+        ].join("\n");
+
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel formatting
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `reporte_ordenes_4fun_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="space-y-6">
             <div>
@@ -142,6 +179,14 @@ export default function AdminOrdersPage() {
                         <SelectItem value="cancelled">Cancelado</SelectItem>
                     </SelectContent>
                 </Select>
+                <Button 
+                    variant="outline" 
+                    className="ml-auto flex items-center gap-2" 
+                    onClick={handleExportCSV}
+                    disabled={loading || filteredOrders.length === 0}
+                >
+                    <Download className="h-4 w-4" /> Exportar a CSV
+                </Button>
             </div>
 
             <Card>
